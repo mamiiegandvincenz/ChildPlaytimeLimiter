@@ -1,0 +1,1087 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin" />
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Child Playtime Limiter</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      :root {
+        --bg-primary: #f5f7fa;
+        --bg-card: #ffffff;
+        --accent-blue: #1a3c6c;
+        --accent-green: #4caf50;
+        --accent-orange: #f6851b;
+        --text-primary: #333333;
+        --text-secondary: #666666;
+        --border-primary: rgba(0, 0, 0, 0.1);
+        --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+        --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.12);
+        --gradient-blue: linear-gradient(135deg, #1a3c6c 0%, #2a5b9a 100%);
+        --gradient-green: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+        --gradient-orange: linear-gradient(135deg, #f6851b 0%, #ff9800 100%);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+      body {
+        min-height: 100vh;
+        font-family:
+          "Poppins",
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        line-height: 1.6;
+        overflow-x: hidden;
+      }
+      .topbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 2rem;
+        background: var(--bg-card);
+        border-bottom: 1px solid var(--border-primary);
+        box-shadow: var(--shadow-sm);
+      }
+      .topbar::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 3px;
+        width: 0%;
+        background: var(--gradient-blue);
+        transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .topbar.connected::after {
+        width: 100%;
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--accent-blue);
+      }
+      .logo img {
+        height: 36px;
+        filter: brightness(1.1);
+      }
+      #connect {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        background: var(--gradient-orange);
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-family: "Poppins", sans-serif;
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: var(--shadow-sm);
+      }
+      #connect:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+      }
+      #connect:focus {
+        outline: 2px solid var(--accent-blue);
+        outline-offset: 2px;
+      }
+      #connect:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+      #connect img {
+        width: 22px;
+        height: 22px;
+      }
+      main {
+        padding-top: 6rem;
+        padding-bottom: 4rem;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3rem;
+      }
+      .hero {
+        text-align: center;
+        max-width: 900px;
+        margin: 0 auto;
+      }
+      .hero h1 {
+        font-size: clamp(2.5rem, 5vw, 3.5rem);
+        font-weight: 700;
+        color: var(--accent-blue);
+        margin-bottom: 1rem;
+      }
+      .hero p {
+        font-size: 1.1rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.75rem;
+      }
+      .hero .subtitle {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        font-family: "Fira Code", monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+      .app {
+        width: 100%;
+        max-width: 1100px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+      }
+      @media (max-width: 900px) {
+        .app {
+          grid-template-columns: 1fr;
+          max-width: 600px;
+        }
+      }
+      .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: var(--shadow-sm);
+        transition: all 0.3s ease;
+      }
+      .card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-md);
+      }
+      .card h2 {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--accent-blue);
+        margin-bottom: 1.5rem;
+      }
+      .card h2 i {
+        font-size: 1.25rem;
+        color: var(--accent-blue);
+      }
+      .note {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background: rgba(26, 60, 108, 0.05);
+        border: 1px solid rgba(26, 60, 108, 0.1);
+        border-radius: 8px;
+        font-family: "Fira Code", monospace;
+      }
+      .inputs {
+        display: flex;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      @media (max-width: 600px) {
+        .inputs {
+          flex-direction: column;
+        }
+      }
+      .input-wrapper {
+        flex: 1;
+      }
+      label {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+      input[type="number"],
+      input[type="text"],
+      select {
+        width: 100%;
+        padding: 0.9rem 1.2rem;
+        background: #f9fafb;
+        border: 1px solid var(--border-primary);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+        font-family: "Fira Code", monospace;
+        text-align: center;
+        transition: all 0.3s ease;
+      }
+      input:focus,
+      select:focus {
+        outline: none;
+        border-color: var(--accent-blue);
+        box-shadow: 0 0 0 3px rgba(26, 60, 108, 0.1);
+        background: #ffffff;
+      }
+      input:disabled,
+      select:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        padding: 0.9rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-family: "Poppins", sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+      }
+      .btn:focus {
+        outline: 2px solid var(--accent-blue);
+        outline-offset: 2px;
+      }
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .btn-primary {
+        background: var(--gradient-blue);
+        color: #ffffff;
+        box-shadow: var(--shadow-sm);
+      }
+      .btn-secondary {
+        background: #ffffff;
+        color: var(--accent-blue);
+        border: 1px solid var(--accent-blue);
+        box-shadow: var(--shadow-sm);
+      }
+      .btn-success {
+        background: var(--gradient-green);
+        color: #ffffff;
+        box-shadow: var(--shadow-sm);
+      }
+      .btn i {
+        font-size: 1rem;
+      }
+      .status {
+        width: 100%;
+        max-width: 1100px;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      #status,
+      #result,
+      #playResult {
+        padding: 1.5rem 2rem;
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        border-radius: 12px;
+        min-height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 500;
+        text-align: center;
+        font-family: "Fira Code", monospace;
+        font-size: 0.9rem;
+        color: var(--text-primary);
+        transition: all 0.3s ease;
+      }
+      .loading::after {
+        content: "";
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(0, 0, 0, 0.3);
+        border-top-color: var(--accent-blue);
+        border-radius: 50%;
+        margin-left: 12px;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .encrypt-animation {
+        position: relative;
+        overflow: hidden;
+      }
+      .encrypt-animation::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba(26, 60, 108, 0.1) 20%,
+          rgba(26, 60, 108, 0.2) 50%,
+          rgba(26, 60, 108, 0.1) 80%,
+          transparent 100%
+        );
+        animation: scan 2s ease-in-out infinite;
+        border-radius: 12px;
+      }
+      @keyframes scan {
+        0% {
+          transform: translateX(-100%);
+        }
+        100% {
+          transform: translateX(100%);
+        }
+      }
+      .success-flash {
+        animation: flash 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      @keyframes flash {
+        0%,
+        100% {
+          box-shadow: var(--shadow-sm);
+          border-color: var(--border-primary);
+        }
+        50% {
+          box-shadow:
+            var(--shadow-md),
+            0 0 0 3px rgba(26, 60, 108, 0.2);
+          border-color: var(--accent-blue);
+        }
+      }
+      .hours-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 8px;
+        margin-bottom: 1.5rem;
+      }
+      .hour-box {
+        padding: 0.75rem;
+        text-align: center;
+        background: #f9fafb;
+        border: 1px solid var(--border-primary);
+        border-radius: 6px;
+        cursor: pointer;
+        user-select: none;
+        font-size: 0.85rem;
+        font-family: "Fira Code", monospace;
+        transition: all 0.2s ease;
+      }
+      .hour-box:hover {
+        background: rgba(26, 60, 108, 0.05);
+        transform: scale(1.05);
+      }
+      .hour-box.selected {
+        background: var(--accent-blue);
+        color: #ffffff;
+        border-color: var(--accent-blue);
+      }
+      @media (max-width: 600px) {
+        .topbar {
+          padding: 0.75rem 1rem;
+        }
+        .logo {
+          font-size: 1.1rem;
+        }
+        #connect {
+          padding: 0.6rem 1rem;
+          font-size: 0.85rem;
+        }
+        .card {
+          padding: 1.5rem;
+        }
+        main {
+          padding-top: 5rem;
+          gap: 2rem;
+        }
+        .hour-box {
+          padding: 0.5rem;
+          font-size: 0.8rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="topbar" id="topbar">
+      <div class="logo">
+        <img
+          src="https://raw.githubusercontent.com/zama-ai/fhevm/main/docs/.gitbook/assets/fhevm-dark.png"
+          alt="Zama FHE"
+        />
+        Child Playtime Limiter
+      </div>
+      <button id="connect" title="Connect MetaMask">
+        <img
+          src="https://raw.githubusercontent.com/MetaMask/metamask-extension/master/app/images/logo/metamask-fox.svg"
+          alt="MetaMask"
+        />
+        <span>Connect</span>
+      </button>
+    </nav>
+    <main>
+      <section class="hero">
+        <h1><i class="fa-solid fa-clock"></i> Child Playtime Limiter</h1>
+        <p>Securely manage your child's playtime with privacy-first encryption</p>
+        <div class="subtitle">Powered by Zama FHE • Blockchain Security</div>
+      </section>
+      <section class="app">
+        <div class="card" id="rulesCard">
+          <h2><i class="fa-solid fa-user-clock"></i> Set Playtime Rules</h2>
+          <div class="note">Select a day and allowed hours (0-23, UTC). Rules are encrypted for privacy.</div>
+          <div class="inputs">
+            <div class="input-wrapper">
+              <label for="daySelect">Day of Week</label>
+              <select id="daySelect" disabled>
+                <option value="0">Monday</option>
+                <option value="1">Tuesday</option>
+                <option value="2">Wednesday</option>
+                <option value="3">Thursday</option>
+                <option value="4">Friday</option>
+                <option value="5">Saturday</option>
+                <option value="6">Sunday</option>
+              </select>
+            </div>
+          </div>
+          <div class="hours-grid" id="hoursGrid"></div>
+          <div class="inputs">
+            <div class="input-wrapper">
+              <button id="setRules" class="btn btn-primary" disabled>
+                <i class="fa-solid fa-check"></i> Set Rules
+              </button>
+            </div>
+            <div class="input-wrapper">
+              <button id="clearRules" class="btn btn-secondary" disabled>
+                <i class="fa-solid fa-trash"></i> Clear Rules
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="card" id="adminCard">
+          <h2><i class="fa-solid fa-user-shield"></i> Admin & Check</h2>
+          <div class="note">Owner sets parent/child roles. Anyone can check playtime status.</div>
+          <div class="inputs">
+            <div class="input-wrapper">
+              <label for="parentAddress">Parent Address</label>
+              <input type="text" id="parentAddress" placeholder="0x..." disabled />
+            </div>
+            <div class="input-wrapper">
+              <label for="childAddress">Child Address</label>
+              <input type="text" id="childAddress" placeholder="0x..." disabled />
+            </div>
+          </div>
+          <div class="inputs">
+            <div class="input-wrapper">
+              <button id="setRoles" class="btn btn-primary" disabled>
+                <i class="fa-solid fa-users"></i> Set Roles
+              </button>
+            </div>
+          </div>
+          <div class="inputs">
+            <div class="input-wrapper">
+              <button id="checkPlaytime" class="btn btn-success" disabled>
+                <i class="fa-solid fa-gamepad"></i> Can Play Now?
+              </button>
+            </div>
+          </div>
+          <div id="playResult" aria-live="polite"></div>
+        </div>
+      </section>
+      <section class="status">
+        <div id="status" aria-live="polite">Waiting for MetaMask connection...</div>
+        <div id="result" aria-live="polite"></div>
+      </section>
+    </main>
+    <script type="module" crossorigin src="https://cdn.zama.ai/relayer-sdk-js/0.1.2/relayer-sdk-js.js"></script>
+    <script type="module" crossorigin src="https://cdn.jsdelivr.net/npm/ethers@6.15.0/+esm"></script>
+    <script type="module">
+      import { BrowserProvider, Contract } from "https://cdn.jsdelivr.net/npm/ethers@6.15.0/+esm";
+      import {
+        initSDK,
+        createInstance,
+        SepoliaConfig,
+      } from "https://cdn.zama.ai/relayer-sdk-js/0.1.2/relayer-sdk-js.js";
+
+      const $ = (id) => document.getElementById(id);
+      const [
+        connectBtn,
+        daySelect,
+        hoursGrid,
+        setRulesBtn,
+        clearRulesBtn,
+        parentAddress,
+        childAddress,
+        setRolesBtn,
+        checkPlaytimeBtn,
+        status,
+        result,
+        playResult,
+      ] = [
+        "connect",
+        "daySelect",
+        "hoursGrid",
+        "setRules",
+        "clearRules",
+        "parentAddress",
+        "childAddress",
+        "setRoles",
+        "checkPlaytime",
+        "status",
+        "result",
+        "playResult",
+      ].map($);
+
+      const CONTRACT_ADDRESS = "0x60DfBd11b565B73F181eD9c8e32dDfD60FFe8AC9";
+      const KMS_ADDRESS = "0x1364cBBf2cDF5032C47d8226a6f6FBD2AFCDacAC";
+      const RELAYER_URL = "https://relayer.testnet.zama.cloud";
+
+      const childPlaytimeAbi = [
+        {
+          inputs: [],
+          name: "version",
+          outputs: [{ name: "", type: "string" }],
+          stateMutability: "pure",
+          type: "function",
+        },
+        {
+          inputs: [{ name: "newOwner", type: "address" }],
+          name: "transferOwnership",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { name: "_parent", type: "address" },
+            { name: "_child", type: "address" },
+          ],
+          name: "setRoles",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { name: "day", type: "uint8" },
+            { name: "maskExt", type: "bytes32" },
+            { name: "proof", type: "bytes" },
+          ],
+          name: "parentSetDayMask",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { name: "day", type: "uint8" },
+            { name: "maskExt", type: "bytes32" },
+            { name: "proof", type: "bytes" },
+          ],
+          name: "childSetDayMask",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [{ name: "day", type: "uint8" }],
+          name: "clearDay",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "canPlayNow",
+          outputs: [{ name: "allowedCt", type: "bytes32" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [{ name: "ts", type: "uint256" }],
+          name: "canPlayAt",
+          outputs: [{ name: "allowedCt", type: "bytes32" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [{ name: "day", type: "uint8" }],
+          name: "getDayHandles",
+          outputs: [
+            { name: "parentMaskH", type: "bytes32" },
+            { name: "childMaskH", type: "bytes32" },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "owner",
+          outputs: [{ name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "parent",
+          outputs: [{ name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "child",
+          outputs: [{ name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, name: "who", type: "address" },
+            { indexed: false, name: "day", type: "uint8" },
+            { indexed: false, name: "hour", type: "uint8" },
+            { indexed: false, name: "allowedHandle", type: "bytes32" },
+          ],
+          name: "PolicyChecked",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, name: "parent", type: "address" },
+            { indexed: true, name: "child", type: "address" },
+          ],
+          name: "RolesSet",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, name: "day", type: "uint8" },
+            { indexed: false, name: "handle", type: "bytes32" },
+          ],
+          name: "ParentRuleUpdated",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, name: "day", type: "uint8" },
+            { indexed: false, name: "handle", type: "bytes32" },
+          ],
+          name: "ChildRuleUpdated",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, name: "by", type: "address" },
+            { indexed: true, name: "day", type: "uint8" },
+          ],
+          name: "Cleared",
+          type: "event",
+        },
+      ];
+
+      let provider, signer, user, relayer, contract;
+      let step = 0;
+      let selectedHours = new Array(24).fill(false);
+
+      function log(msg) {
+        console.log(`[${++step}] ${msg}`);
+      }
+
+      function addLoadingAnimation(btn) {
+        btn.classList.add("loading");
+      }
+
+      function removeLoadingAnimation(btn) {
+        btn.classList.remove("loading");
+      }
+
+      function addEncryptionAnimation(element) {
+        element.classList.add("encrypt-animation");
+        setTimeout(() => element.classList.remove("encrypt-animation"), 3000);
+      }
+
+      function addSuccessFlash(element) {
+        element.classList.add("success-flash");
+        setTimeout(() => element.classList.remove("success-flash"), 500);
+      }
+
+      function createHoursGrid() {
+        hoursGrid.innerHTML = "";
+        for (let i = 0; i < 24; i++) {
+          const box = document.createElement("div");
+          box.className = "hour-box";
+          box.textContent = `${i}:00`;
+          box.dataset.hour = i;
+          box.addEventListener("click", () => {
+            selectedHours[i] = !selectedHours[i];
+            box.classList.toggle("selected", selectedHours[i]);
+          });
+          hoursGrid.appendChild(box);
+        }
+      }
+
+      async function updateStatus() {
+        if (!contract) return;
+        try {
+          const owner = await contract.owner();
+          const parent = await contract.parent();
+          const child = await contract.child();
+          const now = Math.floor(Date.now() / 1000);
+          const hour = Math.floor(now / 3600) % 24;
+          const dow = (Math.floor(now / 86400) + 4) % 7; // 0=Mon..6=Sun
+          const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+          result.textContent = `Owner: ${owner.slice(0, 6)}...${owner.slice(-4)} | Parent: ${parent === "0x0000000000000000000000000000000000000000" ? "Not set" : parent.slice(0, 6) + "..." + parent.slice(-4)} | Child: ${child === "0x0000000000000000000000000000000000000000" ? "Not set" : child.slice(0, 6) + "..." + child.slice(-4)} | UTC ${days[dow]} ${hour}:00`;
+        } catch (e) {
+          log(`Status update error: ${e.message}`);
+        }
+      }
+
+      window.addEventListener("load", () => {
+        log("Page loaded, attaching handler to MetaMask button");
+        connectBtn.onclick = connectMetaMask;
+      });
+
+      async function connectMetaMask() {
+        addLoadingAnimation(connectBtn);
+        log("Checking window.ethereum...");
+        if (!window.ethereum || typeof window.ethereum.request !== "function") {
+          status.textContent = "❌ MetaMask is not installed or does not support EIP-1193";
+          log("MetaMask not found or does not support EIP-1193");
+          removeLoadingAnimation(connectBtn);
+          return false;
+        }
+        try {
+          provider = new BrowserProvider(window.ethereum);
+          await provider.send("eth_requestAccounts", []);
+          signer = await provider.getSigner();
+          user = await signer.getAddress();
+          let network = await provider.getNetwork();
+          if (network.chainId !== BigInt(11155111)) {
+            status.textContent = "⏳ Switching to Sepolia network...";
+            log(`Incorrect network: ${network.chainId}. Requesting Sepolia (11155111)`);
+            try {
+              await provider.send("wallet_switchEthereumChain", [{ chainId: "0xaa36a7" }]);
+              network = await provider.getNetwork();
+            } catch (switchError) {
+              if (switchError.code === 4902) {
+                try {
+                  await provider.send("wallet_addEthereumChain", [
+                    {
+                      chainId: "0xaa36a7",
+                      chainName: "Sepolia",
+                      nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
+                      rpcUrls: ["https://rpc.sepolia.org"],
+                      blockExplorerUrls: ["https://sepolia.etherscan.io"],
+                    },
+                  ]);
+                  network = await provider.getNetwork();
+                } catch (addError) {
+                  status.textContent = "❌ Unable to add Sepolia network";
+                  log(`Add network error: ${addError.message}`);
+                  removeLoadingAnimation(connectBtn);
+                  return false;
+                }
+              } else {
+                status.textContent = "❌ Please switch to Sepolia network";
+                log(`Network switch error: ${switchError.message}`);
+                removeLoadingAnimation(connectBtn);
+                return false;
+              }
+            }
+            if (network.chainId !== BigInt(11155111)) {
+              status.textContent = "❌ Please switch to Sepolia network";
+              log(`Failed to switch network: ${network.chainId}`);
+              removeLoadingAnimation(connectBtn);
+              return false;
+            }
+          }
+          status.textContent = `✅ Connected: ${user.slice(0, 6)}...${user.slice(-4)}`;
+          log(`Connected account: ${user}`);
+          connectBtn.innerHTML = `<img src="https://raw.githubusercontent.com/MetaMask/metamask-extension/master/app/images/logo/metamask-fox.svg" alt="MetaMask"><span>${user.slice(0, 6)}...${user.slice(-4)}</span>`;
+          connectBtn.disabled = true;
+          document.getElementById("topbar").classList.add("connected");
+          daySelect.disabled = false;
+          setRulesBtn.disabled = false;
+          clearRulesBtn.disabled = false;
+          parentAddress.disabled = false;
+          childAddress.disabled = false;
+          checkPlaytimeBtn.disabled = false;
+          addSuccessFlash(status);
+          log("Initializing Relayer SDK...");
+          await initSDK();
+          log("Relayer SDK initialized");
+          const relayerConfig = {
+            ...SepoliaConfig,
+            network: window.ethereum,
+            relayerUrl: RELAYER_URL,
+            debug: true,
+          };
+          const code = await provider.getCode(KMS_ADDRESS);
+          if (code === "0x") {
+            throw new Error(`KMS contract not found at address: ${KMS_ADDRESS}`);
+          }
+          log(`KMS contract exists: ${KMS_ADDRESS}, code length: ${code.length} bytes`);
+          log("Creating relayer...");
+          relayer = await createInstance(relayerConfig);
+          log("Relayer ready");
+          log("Creating contract instance...");
+          contract = new Contract(CONTRACT_ADDRESS, childPlaytimeAbi, signer);
+          log(`Contract initialized: ${CONTRACT_ADDRESS}`);
+          const version = await contract.version();
+          log(`Contract version: ${version}`);
+          const owner = await contract.owner();
+          const parent = await contract.parent();
+          const child = await contract.child();
+          setRolesBtn.disabled = owner.toLowerCase() !== user.toLowerCase();
+          if (owner.toLowerCase() !== user.toLowerCase()) {
+            setRolesBtn.style.display = "none";
+          }
+          parentAddress.value = parent;
+          childAddress.value = child;
+          await updateStatus();
+          createHoursGrid();
+          removeLoadingAnimation(connectBtn);
+          return true;
+        } catch (e) {
+          status.textContent = `❌ Connection error: ${e.message}`;
+          log(`Connection error: ${e.message}`);
+          removeLoadingAnimation(connectBtn);
+          return false;
+        }
+      }
+
+      setRulesBtn.onclick = async () => {
+        if (!relayer || !contract) {
+          status.textContent = "❌ Connect MetaMask first";
+          log("MetaMask not connected");
+          return;
+        }
+        const day = Number(daySelect.value);
+        if (day < 0 || day > 6) {
+          status.textContent = "❌ Invalid day";
+          log(`Invalid day: ${day}`);
+          return;
+        }
+        let mask = 0;
+        selectedHours.forEach((selected, i) => {
+          if (selected) mask |= 1 << i;
+        });
+        setRulesBtn.disabled = true;
+        addLoadingAnimation(setRulesBtn);
+        addEncryptionAnimation(hoursGrid);
+        status.textContent = "⏳ Setting rules...";
+        try {
+          const buf = relayer.createEncryptedInput(CONTRACT_ADDRESS, user);
+          buf.add32(mask);
+          const { handles, inputProof } = await buf.encrypt();
+          const hMask = handles[0];
+          const proof = inputProof;
+          const hHex =
+            typeof hMask === "string" ? hMask : "0x" + [...hMask].map((b) => b.toString(16).padStart(2, "0")).join("");
+          log(`hMask: ${hHex}`);
+          log(`proof(bytes): ${proof.length}`);
+          const isParent = (await contract.parent()).toLowerCase() === user.toLowerCase();
+          const isChild = (await contract.child()).toLowerCase() === user.toLowerCase();
+          let tx;
+          if (isParent && isChild) {
+            await contract.parentSetDayMask.staticCall(day, hMask, proof);
+            tx = await contract.parentSetDayMask(day, hMask, proof);
+            log(`txHash (parent): ${tx.hash}`);
+            await tx.wait();
+            await contract.childSetDayMask.staticCall(day, hMask, proof);
+            tx = await contract.childSetDayMask(day, hMask, proof);
+            log(`txHash (child): ${tx.hash}`);
+            await tx.wait();
+          } else if (isParent) {
+            await contract.parentSetDayMask.staticCall(day, hMask, proof);
+            tx = await contract.parentSetDayMask(day, hMask, proof);
+          } else if (isChild) {
+            await contract.childSetDayMask.staticCall(day, hMask, proof);
+            tx = await contract.childSetDayMask(day, hMask, proof);
+          } else {
+            status.textContent = "❌ Only parent or child can set rules";
+            log("User is neither parent nor child");
+            return;
+          }
+          log(`txHash: ${tx.hash}`);
+          await tx.wait();
+          status.textContent = "✅ Rules set";
+          result.textContent = `🎉 Rules updated for day ${daySelect.options[daySelect.selectedIndex].text} (tx: ${tx.hash})`;
+          addSuccessFlash(result);
+        } catch (e) {
+          status.textContent = `❌ Error: ${e.message}`;
+          log(`Set rules error: ${e.message}`);
+        } finally {
+          setRulesBtn.disabled = false;
+          removeLoadingAnimation(setRulesBtn);
+          await updateStatus();
+        }
+      };
+
+      clearRulesBtn.onclick = async () => {
+        if (!contract) {
+          status.textContent = "❌ Connect MetaMask first";
+          log("MetaMask not connected");
+          return;
+        }
+        const day = Number(daySelect.value);
+        if (day < 0 || day > 6) {
+          status.textContent = "❌ Invalid day";
+          log(`Invalid day: ${day}`);
+          return;
+        }
+        clearRulesBtn.disabled = true;
+        addLoadingAnimation(clearRulesBtn);
+        status.textContent = "⏳ Clearing rules...";
+        try {
+          const tx = await contract.clearDay(day);
+          log(`clearDay tx: ${tx.hash}`);
+          await tx.wait();
+          status.textContent = "✅ Rules cleared";
+          result.textContent = `🎉 Rules cleared for day ${daySelect.options[daySelect.selectedIndex].text} (tx: ${tx.hash})`;
+          addSuccessFlash(result);
+          selectedHours.fill(false);
+          document.querySelectorAll(".hour-box").forEach((box) => box.classList.remove("selected"));
+        } catch (e) {
+          status.textContent = `❌ Error: ${e.message}`;
+          log(`Clear rules error: ${e.message}`);
+        } finally {
+          clearRulesBtn.disabled = false;
+          removeLoadingAnimation(clearRulesBtn);
+          await updateStatus();
+        }
+      };
+
+      setRolesBtn.onclick = async () => {
+        if (!contract) {
+          status.textContent = "❌ Connect MetaMask first";
+          log("MetaMask not connected");
+          return;
+        }
+        const parentAddr = parentAddress.value;
+        const childAddr = childAddress.value;
+        if (!ethers.isAddress(parentAddr) || !ethers.isAddress(childAddr)) {
+          status.textContent = "❌ Invalid addresses";
+          log(`Invalid addresses: parent=${parentAddr}, child=${childAddr}`);
+          return;
+        }
+        setRolesBtn.disabled = true;
+        addLoadingAnimation(setRolesBtn);
+        status.textContent = "⏳ Setting roles...";
+        try {
+          const tx = await contract.setRoles(parentAddr, childAddr);
+          log(`setRoles tx: ${tx.hash}`);
+          await tx.wait();
+          status.textContent = "✅ Roles set";
+          result.textContent = `🎉 Parent and Child roles updated (tx: ${tx.hash})`;
+          addSuccessFlash(result);
+        } catch (e) {
+          status.textContent = `❌ Error: ${e.message}`;
+          log(`Set roles error: ${e.message}`);
+        } finally {
+          setRolesBtn.disabled = false;
+          removeLoadingAnimation(setRolesBtn);
+          await updateStatus();
+        }
+      };
+
+      checkPlaytimeBtn.onclick = async () => {
+        if (!relayer || !contract) {
+          status.textContent = "❌ Connect MetaMask first";
+          log("MetaMask not connected");
+          return;
+        }
+        checkPlaytimeBtn.disabled = true;
+        addLoadingAnimation(checkPlaytimeBtn);
+        status.textContent = "⏳ Checking playtime...";
+        try {
+          const tx = await contract.canPlayNow({ gasLimit: 900_000n });
+          log(`tx: ${tx.hash}`);
+          const rcpt = await tx.wait();
+          log(`receipt logs: ${rcpt.logs.length}`);
+
+          const ev = contract.interface.getEvent("PolicyChecked");
+          const topic0 = ev.topicHash;
+          const addr = contract.target.toLowerCase();
+          const lg = rcpt.logs.find((l) => l.topics[0] === topic0 && l.address.toLowerCase() === addr);
+          if (!lg) {
+            log(`Logs: ${JSON.stringify(rcpt.logs.map((l) => ({ topics: l.topics, address: l.address })))}`);
+            throw new Error("PolicyChecked event not found");
+          }
+
+          const parsed = contract.interface.parseLog(lg);
+          const allowedHandle = parsed.args.allowedHandle;
+          log(`allowedHandle: ${allowedHandle}`);
+
+          // ВАЖНО: сюда передаём МАССИВ хэндлов
+          const out = await relayer.publicDecrypt([allowedHandle]);
+          log(`Decrypt output: ${JSON.stringify(out)}`);
+
+          // Находим ключ с нужным хэндлом (регистр может отличаться)
+          const key = Object.keys(out).find((k) => k.toLowerCase() === String(allowedHandle).toLowerCase());
+          if (!key) throw new Error("Handle not found in publicDecrypt output");
+
+          const v = out[key];
+          const allowed =
+            v === true ||
+            v === 1 ||
+            v === "1" ||
+            (typeof v === "bigint" && v === 1n) ||
+            (typeof v === "string" && v.startsWith("0x") && BigInt(v) === 1n);
+
+          playResult.textContent = allowed ? "✅ Can play now" : "❌ Cannot play now";
+          status.textContent = "✅ Playtime checked";
+          addSuccessFlash(playResult);
+        } catch (e) {
+          status.textContent = `❌ Error: ${e.message}`;
+          log(`Check playtime error: ${e.message}`);
+          console.error(e);
+        } finally {
+          checkPlaytimeBtn.disabled = false;
+          removeLoadingAnimation(checkPlaytimeBtn);
+          await updateStatus();
+        }
+      };
+    </script>
+  </body>
+</html>
